@@ -9,7 +9,11 @@ The projects are
 
 3. Object detection; deformable part model; non-maximum supression; weighted mean shift; emxamplar SVM; HOG.
 
+related repo: https://github.com/waynezv/exemplarsvm
+
 4. Tracking templates and control points; Lucas-Kanade; Supervised Descent Method; SIFT.
+
+related repo: https://github.com/waynezv/CF2
 
 5. RANSAC and 3D reconstruction; eight point algorithm; seven point algorithm; Smith Hall :-)
 
