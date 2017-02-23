@@ -1,0 +1,33 @@
+%Loading the dictionary, filters and training data
+numCores=12;
+imageDir = '../images'; %where all images are located
+targetDir = '../wordmap';%where we will store visual word outputs 
+load('traintest.mat');
+load('trainOutput.mat');
+
+tic
+% KNN
+k = 10;
+distance = 'similarity'
+% distance = 'euclid'
+% distance = 'cosine'
+% distance = 'kldivergence'
+
+predictedLabel = [];
+for i = 1:length(testImagePaths)
+    image = imread(fullfile(imageDir, testImagePaths{i}));
+    wordMap = getVisualWords(image, filterBank, dictionary);
+    h = getImageFeaturesSPM( 3, wordMap, size(dictionary,1));
+    predictedLabel(i) = knnClassify(h, trainHistograms, trainImageLabels, k, distance)
+    testImageLabels(i)
+end
+toc
+% C(i,j)
+C = zeros(length(unique(trainImageLabels)));
+count = 0;
+for i = 1:length(testImageLabels)
+    count = count + length(find(predictedLabels == testImageLabels(i)));
+end
+
+accuracy = count/length(trainImageLabels);
+

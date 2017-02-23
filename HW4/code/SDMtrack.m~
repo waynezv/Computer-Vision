@@ -1,0 +1,79 @@
+function SDMtrack(models, mean_shape, start_location, start_frame, outvidfile)
+% CV Fall 2014 - Provided Code
+% You need to implement the SDM test phase in this function, and output a
+% tracking video for Winnie the Pooh
+%
+% Input:
+%   models:         The model you trained in SDMtrain.m
+%   mean_shape:     A provided 5x2 matrix indicating the x and y coordinates of 5 control points
+%   start_location: A initial location for the first frame to start tracking. It has the format
+%                   [nose_x nose_y; left_eye_x left_eye_y; right_eye_x right_eye_y; right_nose_x right_nose_y; left_nose_x left_nose_y]
+%   start_frame:    A frame index denoting which frame to start tracking
+%   outvidfile:     A string indicating the output video file name (eg, 'vidout.avi')
+
+    % Open video for writing	
+	vidout = VideoWriter(outvidfile);
+	vidout.FrameRate = 20;
+	open(vidout);
+
+    %% ADD YOUR CODE HERE
+    begin_shape   = start_location;
+    current_shape = mean_shape;
+    TA_scale      = [7 4 4 10 10]; % TA's scale
+    orient        = zeros(1,5);
+	for iFrm = start_frame:3000
+		% Load testing image
+		I = imread(sprintf('data/pooh/testing/image-%04d.jpg', iFrm));
+        notconvergence = 5;
+        ww = 1;
+		%% ADD YOUR CODE HERE
+        % Store your initial guess as a 5x2 matrix named begin_shape (1st
+        %     column indicates x-coordinate, and 2nd column indicates y-coordinate).
+        % Store your final guess as a 5x2 matrix named current_shape (in the same format as begin_shape)
+        while notconvergence
+            fprintf('iteration %d\n', ww);
+            % translate and scale
+            scalex        = findscale(begin_shape, current_shape);
+            current_shape = current_shape./scalex;
+            diff_center   = mean(begin_shape, 1) - mean(current_shape, 1);
+            current_shape = current_shape + repmat(diff_center, [size(current_shape,1),1]);
+            % sift feature
+            % !!!! product or divide !!!
+            cfg   = [current_shape.'; TA_scale./scalex; orient];
+            siftF = siftwrapper(I, cfg);
+            for ii = 1:5
+                siftF(:,ii) = siftF(:,ii)./sum(siftF(:,ii));
+            end
+            siftF = siftF(:).'; % 1-by-640
+            % !!!! normalize !!!!
+            % update displacement
+            begin_shape   = current_shape;
+            current_shape = current_shape - reshape(siftF*models.map{ww}, [2,5]).'; % + or - ? 
+            ww = ww+1;
+            notconvergence = notconvergence-1;
+        end
+		% Draw tracked location of parts
+		% Red crosses should track Pooh's nose, eyes and ears
+		figure(1);
+		if ~exist('hh','var'), hh = imshow(I); hold on; 
+		else set(hh,'cdata',I);
+		end
+		if ~exist('hPtBeg','var'), hPtBeg = plot(begin_shape(:,1), begin_shape(:,2), 'g+', 'MarkerSize', 15, 'LineWidth', 3);
+		else set(hPtBeg,'xdata',begin_shape(:,1),'ydata',begin_shape(:,2));
+		end
+		if ~exist('hPtcurrent_shape','var'), hPtcurrent_shape = plot(current_shape(:,1), current_shape(:,2), 'r+', 'MarkerSize', 25, 'LineWidth', 5);
+		else set(hPtcurrent_shape,'xdata',current_shape(:,1),'ydata',current_shape(:,2));
+		end
+		title(['frame ',num2str(iFrm)]);
+		if ~exist('hFrmNum', 'var'), hFrmNum = text(30, 30, ['Frame: ',num2str(iFrm)], 'fontsize', 40, 'color', 'r');
+		else set(hFrmNum, 'string', ['Frame: ',num2str(iFrm)]);
+		end
+		%resized so that video will not be too big
+		frm = getframe;
+		writeVideo(vidout, imresize(frm.cdata, 0.5));
+        
+	end
+	
+	% close vidobj
+	close(vidout);
+end

@@ -1,0 +1,53 @@
+function models = SDMtrain(mean_shape, annotations)
+% CV Fall 2014 - Provided Code
+% You need to implement the SDM training phase in this function, and
+% produce tracking models for Winnie the Pooh
+%
+% Input:
+%   mean_shape:    A provided 5x2 matrix indicating the x and y coordinates of 5 control points
+%   annotations:   A ground truth annotation for training images. Each row has the format
+%                  [frame_num nose_x nose_y left_eye_x left_eye_y right_eye_x right_eye_y right_ear_x right_ear_y left_ear_x left_ear_y]
+% Output:
+%   models:        The models that you will use in SDMtrack for tracking
+%
+
+% init path & variables
+poohpath = 'data/pooh';
+debug = 0;
+
+ann = annotations;
+nTrain = size(ann,1);
+% - perturb variables
+nPertCfg        = 100; % number of perturbed configurations
+% !!!! scales !!!!!
+scalesToPerturb = [0.5, 0.8, 1, 1.2, 2.0]; % [0.8, 1.0, 1.2]
+perturbedCfg    = cell(nTrain,1);
+
+DD = cell(nTrain,1); % displacement
+FF = cell(nTrain,1); % feature
+
+notconvergence = 5;
+W = cell(notconvergence,1);
+ww= 1;
+while notconvergence % repeat 5 times
+    fprintf('Training iteration %d\n', ww);
+    for i = 1:nTrain
+        if notconvergence == 5
+            perturbedCfg{i} = genPerturbedConfigurations(ann(i,:), mean_shape, nPertCfg, scalesToPerturb); % 4-by-(n*5)
+            DD{i} = genDisplacementMatrix(ann(i,:), perturbedCfg{i}); % n-by-10
+            FF{i} = genFeatureMatrix(ann(i,:), perturbedCfg{i}, nPertCfg, poohpath);
+        else
+            DD{i} = genDisplacementMatrix(ann(i,:), perturbedCfg{i}); % n-by-10
+            FF{i} = genFeatureMatrix(ann(i,:), perturbedCfg{i}, nPertCfg, poohpath);
+        end
+    end
+    D = cell2mat(DD); % mn-by-10
+    F = cell2mat(FF); % mn-by-640
+    [W{ww}, perturbedCfg, distPertToAnn] = learnMappingAndUpdateConfigurations(F, D, perturbedCfg, nPertCfg, nTrain, annotations);
+    fprintf('Get mapping matrix. Distance between updated configurations and ground truth is\n');
+    distPertToAnn
+    ww = ww+1;
+    notconvergence = notconvergence-1;
+end
+models.map = W;
+end

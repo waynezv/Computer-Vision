@@ -1,0 +1,61 @@
+function [h] = getImageFeaturesSPM(layerNum, wordMap, dictionarySize)
+
+%parameters
+K = dictionarySize;
+l = layerNum - 1;
+
+%% Hist of FINEST LAYER
+
+Height = size(wordMap,1) / 2^l;
+Width = size(wordMap,2) / 2^l;
+LayerHist = zeros(1,K*(4^l));
+tempHist = cell(2^l,2^l);
+
+for i=1:int16(2^l)
+    for j=1:int16(2^l)
+        %get cell word map and Hist
+        currentWordMap = wordMap((i-1)*Height+1:i*Height,(j-1)*Width+1:j*Width);
+        currentHist = getImageFeatures(currentWordMap,K);
+        tempHist{i,j} = currentHist;
+        %concatenate histograms
+        Idx_1 = ((i-1)*2^l + j-1)*K + 1;
+        Idx_2 = ((i-1)*2^l + j-1)*K + K;
+        LayerHist(Idx_1:Idx_2) = currentHist;
+    end
+end
+
+LayerHist = getLayerWeight(l, L)*LayerHist / 4^l;
+h = [LayerHist h];
+l = l - 1;
+
+
+%% Coarse level Hist
+
+while l >= 0
+    
+    LayerHist = zeros(1,dictionarySize*(4^l));
+    newHist = cell(2^l,2^l);
+    for i=1:int16(2^l)
+        for j=1:int16(2^l)
+            %combine histograms from finer cells
+            newHist{i,j} = tempHist{2*i-1,2*j-1}+tempHist{2*i,2*j-1}+ ...
+                           tempHist{2*i-1,2*j}+tempHist{2*i,2*j};
+            %normalize
+            newHist{i,j} = newHist{i,j} / 4;
+            Idx_1 = ((i-1)*2^l + j-1)*K + 1;
+            Idx_2 = ((i-1)*2^l + j-1)*K + K;
+            LayerHist(Idx_1:Idx_2) = newHist{i,j};            
+        end
+    end
+
+    LayerHist = getLayerWeight(l, L)*LayerHist / 4^l;
+    h = [LayerHist h];
+    %update 
+    tempHist = newHist;
+    l = l - 1;
+end
+
+%% Add kenel on hist
+h = sqrt(h);
+h = h./sum(h);
+end
